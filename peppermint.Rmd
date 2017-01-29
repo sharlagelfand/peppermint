@@ -1,0 +1,160 @@
+---
+title: "Peppermint"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: journal
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(flexdashboard)
+library(tidyverse)
+library(lubridate)
+library(googlesheets)
+library(DT)
+gs_auth(token = "googlesheets_token.rds")
+
+transactions <- gs_title("Transactions") %>%
+    gs_read() %>%
+    mutate(Date = mdy(Date),
+           Month = floor_date(Date, 'month')) %>%
+    filter(Month >= ymd('2016-10-01') & is.na(Labels))
+savings_history <- gs_title("Savings History") %>%
+    gs_read()
+budget <- gs_title("Budget") %>%
+    gs_read()
+
+monthly <- gs_title("Monthly") %>% gs_read()
+monthly_salary <- monthly[['Salary']]
+monthly_savings <- monthly[['Savings Goal']]
+
+# Fudging data for public version
+transactions <- transactions %>%
+    rowwise() %>%
+    mutate(Description = stringi::stri_rand_strings(1, 10),
+           Amount = round(Amount*runif(1, 0.1, 5), 2))
+savings_history <- savings_history %>%
+    rowwise() %>%
+    mutate(Amount = round(Amount*runif(1, 0.1, 5), 2))
+budget <- budget %>%
+    rowwise() %>%
+    mutate(Budget = round(Budget*runif(1, 0.1, 5), 2))
+monthly_salary <- round(monthly_salary*runif(1, 0.1, 5))
+monthly_savings <- round(monthly_savings*runif(1, 0.1, 5))
+```
+
+Column {data-width=500, .tabset}
+-----------------------------------------------------------------------
+
+### This Month's Spending
+
+```{r SpendingCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
+spending_current <- spending_bycategory <- transactions %>%
+ dplyr::filter(Month == floor_date(Sys.time(), 'month') &
+                   !(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
+                   `Transaction Type` == 'debit')
+
+spending_bycategory <- spending_current %>%
+ group_by(Category) %>%
+ summarise(Amount = sum(Amount)) %>%
+ left_join(budget, by = 'Category') %>%
+ arrange(desc(Amount))
+
+ggplot(spending_bycategory) +
+  geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
+           stat = 'identity') +
+  geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
+                linetype = 'dotted', size = 0.25) +
+  scale_x_discrete(name = 'Category') +
+  scale_y_continuous(labels = scales::dollar,
+                     sec.axis = sec_axis(~./monthly_salary,
+                                         labels = scales::percent,
+                                         name = '% of Monthly Income')) +
+  coord_flip() + 
+  guides(fill = FALSE) +
+  scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
+  theme_minimal() + 
+  coord_flip()
+```
+
+### Transactions
+
+```{r TransactionsCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
+datatable(spending_current %>% 
+              select(Date, Description, Amount, Category),
+          options = list(pageLength = 10))
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Overall Spending
+
+```{r SpendingOverTime, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE, fig.width=6, fig.height=2.5}
+spending_overtime <- transactions %>%
+ dplyr::filter(!(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
+                   `Transaction Type` == 'debit') %>%
+ group_by(Month) %>%
+ summarise(Amount = sum(Amount))
+    
+ ggplot(spending_overtime,
+  aes(x = Month, y = Amount, fill = Amount)) +
+  geom_bar(stat = 'identity') +
+  scale_x_date(date_labels = '%b %y') +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
+  guides(fill = FALSE) +
+  theme_minimal(base_size = 15)
+```
+
+### This Month's Savings
+
+```{r Savings, echo=FALSE}
+savings_currentmonth <- transactions %>%
+    dplyr::filter(Month == floor_date(Sys.time(), 'month') &
+                      Category == 'Savings' &
+                      `Transaction Type` == 'credit') %>%
+    summarise(Savings = sum(Amount)) %>%
+    unlist() %>% 
+    sum() %>%
+    round()
+
+gauge(savings_currentmonth,
+      min = 0, max = monthly_savings,
+      abbreviate = F,
+      gaugeSectors(
+          success = c(monthly_savings*0.75, monthly_savings),
+          warning = c(monthly_savings*0.50, monthly_savings*0.75-1),
+          danger = c(0, monthly_savings*0.50-1),
+          colors = c('#F8AFA8', '#FDDDA0', '#74A089'))
+)
+```
+
+### Overall Savings
+
+```{r, echo=FALSE}
+savings <- savings_history %>%
+    mutate(Date = mdy(Date),
+           Month = floor_date(Date, 'month')) %>%
+    select(Date, Month, Amount, Type = `Transaction Type`) %>%
+    bind_rows(transactions %>% 
+                  filter(Category == 'Savings') %>%
+                  select(Date, Month, Amount, Type = `Transaction Type`)) %>%
+    arrange(Date) %>%
+    mutate(Savings = cumsum(Amount*ifelse(Type == 'credit', 1, -1)))
+
+savings_bymonth <- savings %>%
+    group_by(Month) %>%
+    filter(row_number() == n())
+
+ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) + 
+  geom_bar(stat = 'identity') +
+  guides(fill = FALSE) +
+  scale_y_continuous(labels = scales::dollar)  +
+  scale_x_date(date_labels = '%b %y') +
+  scale_fill_gradient(low="#85D4E3", high="#F4B5BD") + 
+  theme_minimal(base_size = 15)
+```
+
