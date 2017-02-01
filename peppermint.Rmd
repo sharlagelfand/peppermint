@@ -4,7 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
-    theme: journal
+    theme: journalS
 ---
 
 ```{r setup, include=FALSE, message=FALSE}
@@ -52,7 +52,7 @@ Column {data-width=500, .tabset}
 
 ```{r SpendingCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
 spending_current <- spending_bycategory <- transactions %>%
- dplyr::filter(Month == floor_date(Sys.time(), 'month') &
+ dplyr::filter(Month == floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month') &
                    !(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
                    `Transaction Type` == 'debit')
 
