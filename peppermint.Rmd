@@ -55,10 +55,10 @@ ggplot(spending_bycategory) +
                 linetype = 'dotted', size = 0.25) +
   scale_x_discrete(name = 'Category') +
   scale_y_continuous(labels = scales::dollar,
+                     limits = c(0, max((spending_bycategory[['Amount']]/monthly_salary) + 0.01))*monthly_salary,
                      sec.axis = sec_axis(~./monthly_salary,
                                          labels = scales::percent,
                                          name = '% of Monthly Income')) +
-  coord_flip() + 
   guides(fill = FALSE) +
   scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
   theme_minimal() + 
