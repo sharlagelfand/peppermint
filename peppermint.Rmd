@@ -62,6 +62,9 @@ spending_bycategory <- spending_current %>%
  left_join(budget, by = 'Category') %>%
  arrange(desc(Amount))
 
+max_value <- max(c(max((spending_bycategory[['Amount']]/monthly_salary) + 0.01)*monthly_salary,
+                   max(spending_bycategory[['Amount']])))
+
 ggplot(spending_bycategory) +
   geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
            stat = 'identity') +
@@ -69,10 +72,10 @@ ggplot(spending_bycategory) +
                 linetype = 'dotted', size = 0.25) +
   scale_x_discrete(name = 'Category') +
   scale_y_continuous(labels = scales::dollar,
+                     limits = c(0, max_value),
                      sec.axis = sec_axis(~./monthly_salary,
                                          labels = scales::percent,
                                          name = '% of Monthly Income')) +
-  coord_flip() + 
   guides(fill = FALSE) +
   scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
   theme_minimal() + 
