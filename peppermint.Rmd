@@ -103,7 +103,10 @@ spending_overtime <- transactions %>%
  dplyr::filter(!(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
                    `Transaction Type` == 'debit') %>%
  group_by(Month) %>%
- summarise(Amount = sum(Amount))
+ summarise(Amount = sum(Amount)) %>%
+ full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
+           by = 'Month') %>%
+ replace(is.na(.), 0)
     
  ggplot(spending_overtime,
   aes(x = Month, y = Amount, fill = Amount)) +
@@ -153,7 +156,11 @@ savings <- savings_history %>%
 
 savings_bymonth <- savings %>%
     group_by(Month) %>%
-    filter(row_number() == n())
+    filter(row_number() == n()) %>%
+    ungroup() %>%
+    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
+           by = 'Month') %>%
+    mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
 
 ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) + 
   geom_bar(stat = 'identity') +
