@@ -61,11 +61,12 @@ spending_current <- transactions %>%
 spending_bycategory <- spending_current %>%
  group_by(Category) %>%
  summarise(Amount = sum(Amount)) %>%
- left_join(budget, by = 'Category') %>%
- arrange(desc(Amount))
+ full_join(budget, by = 'Category') %>%
+ arrange(desc(Amount)) %>%
+ replace(is.na(.), 0)
 
-max_value <- max(c(max((spending_bycategory[['Amount']]/monthly_salary) + 0.01)*monthly_salary,
-                   max(spending_bycategory[['Amount']])))
+max_value <- max(c(max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']]))/monthly_salary + 0.01)*monthly_salary,
+                   max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']])))
 
 ggplot(spending_bycategory) +
   geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
