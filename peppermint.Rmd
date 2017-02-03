@@ -53,7 +53,7 @@ Column {data-width=500, .tabset}
 ### This Month's Spending
 
 ```{r SpendingCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
-spending_current <- spending_bycategory <- transactions %>%
+spending_current <- transactions %>%
  dplyr::filter(Month == floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month') &
                    !(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
                    `Transaction Type` == 'debit')
