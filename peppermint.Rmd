@@ -59,30 +59,30 @@ spending_current <- transactions %>%
                    `Transaction Type` == 'debit')
 
 spending_bycategory <- spending_current %>%
- group_by(Category) %>%
- summarise(Amount = sum(Amount)) %>%
- full_join(budget, by = 'Category') %>%
- arrange(desc(Amount)) %>%
- replace(is.na(.), 0)
+    group_by(Category) %>%
+    summarise(Amount = sum(Amount)) %>%
+    full_join(budget, by = 'Category') %>%
+    arrange(desc(Amount)) %>%
+    replace(is.na(.), 0)
 
 max_value <- max(c(max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']]))/monthly_salary + 0.01)*monthly_salary,
                    max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']])))
 
 ggplot(spending_bycategory) +
-  geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
-           stat = 'identity') +
-  geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
-                linetype = 'dotted', size = 0.25) +
-  scale_x_discrete(name = 'Category') +
-  scale_y_continuous(labels = scales::dollar,
-                     limits = c(0, max_value),
-                     sec.axis = sec_axis(~./monthly_salary,
-                                         labels = scales::percent,
-                                         name = '% of Monthly Income')) +
-  guides(fill = FALSE) +
-  scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
-  theme_minimal() + 
-  coord_flip()
+    geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
+             stat = 'identity') +
+    geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
+                  linetype = 'dotted', size = 0.25) +
+    scale_x_discrete(name = 'Category') +
+    scale_y_continuous(labels = scales::dollar,
+                       limits = c(0, max_value),
+                       sec.axis = sec_axis(~./monthly_salary,
+                                           labels = scales::percent,
+                                           name = '% of Monthly Income')) +
+    guides(fill = FALSE) +
+    scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
+    theme_minimal() + 
+    coord_flip()
 ```
 
 ### Transactions
@@ -100,22 +100,22 @@ Column {data-width=500}
 
 ```{r SpendingOverTime, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE, fig.width=6, fig.height=2.5}
 spending_overtime <- transactions %>%
- dplyr::filter(!(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
-                   `Transaction Type` == 'debit') %>%
- group_by(Month) %>%
- summarise(Amount = sum(Amount)) %>%
- full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
-           by = 'Month') %>%
- replace(is.na(.), 0)
+    dplyr::filter(!(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
+                      `Transaction Type` == 'debit') %>%
+    group_by(Month) %>%
+    summarise(Amount = sum(Amount)) %>%
+    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
+              by = 'Month') %>%
+    replace(is.na(.), 0)
     
- ggplot(spending_overtime,
-  aes(x = Month, y = Amount, fill = Amount)) +
-  geom_bar(stat = 'identity') +
-  scale_x_date(date_labels = '%b %y') +
-  scale_y_continuous(labels = scales::dollar) +
-  scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
-  guides(fill = FALSE) +
-  theme_minimal(base_size = 15)
+ggplot(spending_overtime,
+       aes(x = Month, y = Amount, fill = Amount)) +
+    geom_bar(stat = 'identity') +
+    scale_x_date(date_labels = '%b %y') +
+    scale_y_continuous(labels = scales::dollar) +
+    scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
+    guides(fill = FALSE) +
+    theme_minimal(base_size = 15)
 ```
 
 ### This Month's Savings
@@ -163,11 +163,11 @@ savings_bymonth <- savings %>%
     mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
 
 ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) + 
-  geom_bar(stat = 'identity') +
-  guides(fill = FALSE) +
-  scale_y_continuous(labels = scales::dollar)  +
-  scale_x_date(date_labels = '%b %y') +
-  scale_fill_gradient(low="#85D4E3", high="#F4B5BD") + 
-  theme_minimal(base_size = 15)
+    geom_bar(stat = 'identity') +
+    guides(fill = FALSE) +
+    scale_y_continuous(labels = scales::dollar)  +
+    scale_x_date(date_labels = '%b %y') +
+    scale_fill_gradient(low="#85D4E3", high="#F4B5BD") + 
+    theme_minimal(base_size = 15)
 ```
 
