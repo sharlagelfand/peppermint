@@ -41,8 +41,7 @@ max_value <- max(c(max(c(spending_bycategory[['Amount']], spending_bycategory[['
                    max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']])))
 
 ggplot(spending_bycategory) +
-    geom_bar(aes(x = reorder(Category, Amount), y = Amount, fill = Amount),
-             stat = 'identity') +
+    geom_col(aes(x = reorder(Category, Amount), y = Amount, fill = Amount)) +
     geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
                   linetype = 'dotted', size = 0.25) +
     scale_x_discrete(name = 'Category') +
@@ -82,7 +81,7 @@ spending_overtime <- transactions %>%
     
 ggplot(spending_overtime,
        aes(x = Month, y = Amount, fill = Amount)) +
-    geom_bar(stat = 'identity') +
+    geom_col() +
     scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
     scale_y_continuous(labels = scales::dollar) +
     scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
@@ -135,7 +134,7 @@ savings_bymonth <- savings %>%
     mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
 
 ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) + 
-    geom_bar(stat = 'identity') +
+    geom_col() +
     guides(fill = FALSE) +
     scale_y_continuous(labels = scales::dollar)  +
     scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
