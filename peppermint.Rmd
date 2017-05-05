@@ -95,8 +95,8 @@ ggplot(spending_overtime,
 ```{r Savings, echo=FALSE}
 savings_currentmonth <- transactions %>%
     dplyr::filter(Month == floor_date(Sys.time(), 'month') &
-                      Category == 'Savings' &
-                      `Transaction Type` == 'credit') %>%
+                      Category == 'Savings') %>%
+    mutate(Amount = if_else(`Transaction Type` == 'credit', 1, -1)*Amount) %>%
     summarise(Savings = sum(Amount)) %>%
     unlist() %>% 
     sum() %>%
