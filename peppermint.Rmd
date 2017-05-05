@@ -40,8 +40,9 @@ spending_bycategory <- spending_current %>%
 max_value <- max(c(max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']]))/monthly_salary + 0.01)*monthly_salary,
                    max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']])))
 
-ggplot(spending_bycategory) +
-    geom_col(aes(x = reorder(Category, Amount), y = Amount, fill = Amount)) +
+ggplot(spending_bycategory, 
+       aes(x = reorder(Category, Amount), y = Amount, fill = Amount)) +
+    geom_col() +
     geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
                   linetype = 'dotted', size = 0.25) +
     scale_x_discrete(name = 'Category') +
@@ -133,7 +134,8 @@ savings_bymonth <- savings %>%
            by = 'Month') %>%
     mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
 
-ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) + 
+ggplot(savings_bymonth, 
+       aes(x = Month, y = Savings, fill = Savings)) + 
     geom_col() +
     guides(fill = FALSE) +
     scale_y_continuous(labels = scales::dollar)  +
