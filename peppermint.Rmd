@@ -83,7 +83,7 @@ spending_overtime <- transactions %>%
 ggplot(spending_overtime,
        aes(x = Month, y = Amount, fill = Amount)) +
     geom_bar(stat = 'identity') +
-    scale_x_date(date_labels = '%b %y') +
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
     scale_y_continuous(labels = scales::dollar) +
     scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
     guides(fill = FALSE) +
@@ -138,7 +138,7 @@ ggplot(savings_bymonth, aes(x = Month, y = Savings, fill = Savings)) +
     geom_bar(stat = 'identity') +
     guides(fill = FALSE) +
     scale_y_continuous(labels = scales::dollar)  +
-    scale_x_date(date_labels = '%b %y') +
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
     scale_fill_gradient(low="#85D4E3", high="#F4B5BD") + 
     theme_minimal(base_size = 15)
 ```
