@@ -15,6 +15,7 @@ library(flexdashboard)
 library(tidyverse)
 library(lubridate)
 library(DT)
+library(plotly)
 
 source("data_prep.R")
 ```
@@ -31,30 +32,30 @@ spending_current <- transactions %>%
                    `Transaction Type` == 'debit')
 
 spending_bycategory <- spending_current %>%
-    group_by(Category) %>%
-    summarise(Amount = sum(Amount)) %>%
-    full_join(budget, by = 'Category') %>%
-    arrange(desc(Amount)) %>%
-    replace(is.na(.), 0)
+  group_by(Category) %>%
+  summarise(Amount = sum(Amount)) %>%
+  full_join(budget, by = 'Category') %>%
+  arrange(desc(Amount)) %>%
+  replace(is.na(.), 0) %>%
+  mutate(Category = factor(Category, levels = unique(Category)[order(Amount, decreasing = FALSE)]))
 
-max_value <- max(c(max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']]))/monthly_salary + 0.01)*monthly_salary,
-                   max(c(spending_bycategory[['Amount']], spending_bycategory[['Budget']])))
-
-ggplot(spending_bycategory, 
-       aes(x = reorder(Category, Amount), y = Amount, fill = Amount)) +
-    geom_col() +
-    geom_errorbar(aes(x = reorder(Category, Amount), ymin = Budget, ymax = Budget),
-                  linetype = 'dotted', size = 0.25) +
-    scale_x_discrete(name = 'Category') +
-    scale_y_continuous(labels = scales::dollar,
-                       limits = c(0, max_value),
-                       sec.axis = sec_axis(~./monthly_salary,
-                                           labels = scales::percent,
-                                           name = '% of Monthly Income')) +
-    guides(fill = FALSE) +
-    scale_fill_gradient(low="#FAEFD1", high="#C93312") + 
-    theme_minimal() + 
-    coord_flip()
+plot_ly(data = spending_bycategory) %>%
+  add_trace(
+    x = ~Amount,
+    y = ~Category,
+    type = "bar",
+    hoverinfo = 'text',
+    text = ~paste0('$', format(Amount, nsmall = 2))) %>%
+  add_trace(
+    x = ~Budget, 
+    y= ~Category, 
+    type = 'scatter', 
+    mode = 'markers',
+    hoverinfo = 'text',
+    text = ~paste0('$', format(Budget, nsmall = 2))) %>%
+  layout(margin = list(l = 8*max(nchar(as.character(spending_bycategory[['Category']])))),
+         yaxis = list(title = ''),
+         showlegend = FALSE)
 ```
 
 ### Transactions
@@ -80,14 +81,15 @@ spending_overtime <- transactions %>%
               by = 'Month') %>%
     replace(is.na(.), 0)
     
-ggplot(spending_overtime,
-       aes(x = Month, y = Amount, fill = Amount)) +
-    geom_col() +
-    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-    scale_y_continuous(labels = scales::dollar) +
-    scale_fill_gradient(low="#F3DF6C", high="#CEAB07") + 
-    guides(fill = FALSE) +
-    theme_minimal(base_size = 15)
+plot_ly(data = spending_overtime) %>%
+  add_trace(
+    x = ~Month,
+    y = ~Amount,
+    type = "bar",
+    hoverinfo = 'text',
+    text = ~paste0('$', format(Amount, nsmall = 2), " (", month(Month, label = TRUE), ")")) %>%
+  layout(yaxis = list(title = ''),
+         xaxis = list(title = ''))
 ```
 
 ### This Month's Savings
@@ -134,13 +136,14 @@ savings_bymonth <- savings %>%
            by = 'Month') %>%
     mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
 
-ggplot(savings_bymonth, 
-       aes(x = Month, y = Savings, fill = Savings)) + 
-    geom_col() +
-    guides(fill = FALSE) +
-    scale_y_continuous(labels = scales::dollar)  +
-    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-    scale_fill_gradient(low="#85D4E3", high="#F4B5BD") + 
-    theme_minimal(base_size = 15)
+plot_ly(data = savings_bymonth) %>%
+  add_trace(
+    x = ~Month,
+    y = ~Savings,
+    type = "bar",
+    hoverinfo = 'text',
+    text = ~paste0('$', format(Savings, nsmall = 2), " (", month(Month, label = TRUE), ")")) %>%
+  layout(yaxis = list(title = ''),
+         xaxis = list(title = ''))
 ```
 
