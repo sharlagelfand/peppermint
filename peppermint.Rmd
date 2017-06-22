@@ -33,7 +33,7 @@ spending_current <- transactions %>%
 
 spending_bycategory <- spending_current %>%
   group_by(Category) %>%
-  summarise(Amount = sum(Amount)) %>%
+  summarise(Amount = sum(Amount, na.rm = TRUE)) %>%
   full_join(budget, by = 'Category') %>%
   arrange(desc(Amount)) %>%
   replace(is.na(.), 0) %>%
