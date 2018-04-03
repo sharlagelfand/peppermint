@@ -27,7 +27,7 @@ Column {data-width=500, .tabset}
 
 ```{r SpendingCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
 spending_current <- transactions %>%
- dplyr::filter(Month == floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month') &
+ dplyr::filter(Month == floor_date(with_tz(Sys.time(), 'US/Eastern'), 'month') &
                    !(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
                    `Transaction Type` == 'debit')
 
@@ -77,7 +77,7 @@ spending_overtime <- transactions %>%
                       `Transaction Type` == 'debit') %>%
     group_by(Month) %>%
     summarise(Amount = sum(Amount)) %>%
-    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
+    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Eastern'), 'month'))),
               by = 'Month') %>%
     replace(is.na(.), 0)
     
