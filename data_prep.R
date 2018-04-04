@@ -1,32 +1,49 @@
-library(tidyverse)
+library(dplyr)
 library(lubridate)
 library(googlesheets)
+
 gs_auth(token = "googlesheets_token.rds")
 
-transactions <- gs_title("Transactions") %>%
+# Read in data sources
+
+transactions <- gs_title("transactions") %>%
   gs_read() %>%
-  mutate(Date = mdy(Date),
-         Month = floor_date(Date, 'month')) %>%
-  filter(Month >= ymd('2016-10-01') & is.na(Labels))
-savings_history <- gs_title("Savings History") %>%
-  gs_read()
-budget <- gs_title("Budget") %>%
+  mutate(date = ymd(date),
+         month = floor_date(date, 'month'))
+
+savings_history <- gs_title("savings-history") %>%
   gs_read()
 
-monthly <- gs_title("Monthly") %>% gs_read()
-monthly_salary <- monthly[['Salary']]
-monthly_savings <- monthly[['Savings Goal']]
+budget <- gs_title("budget") %>%
+  gs_read()
+
+# Pull monthly salary and savings goal
+
+monthly_salary <- budget %>%
+  filter(category == "salary") %>%
+  pull(budget)
+
+monthly_savings <- budget %>%
+  filter(category == "savings") %>%
+  pull(budget)
+
+# Remove salary and savings to leave budget per spending category
+
+spending_budget <- budget %>%
+  filter(!(category %in% c("salary", "savings")))
 
 # Fudging data for public version
+
 transactions <- transactions %>%
-  rowwise() %>%
-  mutate(Description = stringi::stri_rand_strings(1, 10),
-         Amount = round(Amount*runif(1, 0.1, 5), 2))
+  mutate(description = stringi::stri_rand_strings(nrow(transactions), 10),
+         amount = round(amount*runif(nrow(transactions), 0.1, 5), 2))
+
 savings_history <- savings_history %>%
-  rowwise() %>%
-  mutate(Amount = round(Amount*runif(1, 0.1, 5), 2))
-budget <- budget %>%
-  rowwise() %>%
-  mutate(Budget = round(Budget*runif(1, 0.1, 5), 2))
+  mutate(balance = round(balance*runif(nrow(savings_history), 0.1, 5), 2))
+
+spending_budget <- spending_budget %>%
+  mutate(budget = round(budget*runif(nrow(spending_budget), 0.1, 5), 2))
+
 monthly_salary <- round(monthly_salary*runif(1, 0.1, 5))
+
 monthly_savings <- round(monthly_savings*runif(1, 0.1, 5))

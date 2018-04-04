@@ -10,14 +10,17 @@ runtime: shiny
 ---
 
 ```{r setup, include=FALSE, message=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, errors = FALSE)
 library(flexdashboard)
-library(tidyverse)
+library(dplyr)
 library(lubridate)
 library(DT)
 library(plotly)
+library(padr)
 
 source("data_prep.R")
+
+current_month <- as_date(floor_date(with_tz(Sys.time(), "US/Eastern"), "month"))
 ```
 
 Column {data-width=500, .tabset}
@@ -25,44 +28,50 @@ Column {data-width=500, .tabset}
 
 ### This Month's Spending
 
-```{r SpendingCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
+```{r spending_current}
 spending_current <- transactions %>%
- dplyr::filter(Month == floor_date(with_tz(Sys.time(), 'US/Eastern'), 'month') &
-                   !(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
-                   `Transaction Type` == 'debit')
+  dplyr::filter(month ==  current_month & # current month only
+                  !(category %in% c("savings", "income")) & 
+                  type == "out") # outgoing transactions only
 
-spending_bycategory <- spending_current %>%
-  group_by(Category) %>%
-  summarise(Amount = sum(Amount, na.rm = TRUE)) %>%
-  full_join(budget, by = 'Category') %>%
-  arrange(desc(Amount)) %>%
-  replace(is.na(.), 0) %>%
-  mutate(Category = factor(Category, levels = unique(Category)[order(Amount, decreasing = FALSE)]))
+spending_by_category <- spending_current %>%
+  group_by(category) %>%
+  summarise(amount = sum(amount, na.rm = TRUE)) %>%
+  full_join(spending_budget, by = "category") %>%
+  fill_by_value(amount, budget, 0) %>%
+  mutate(prop_spent = if_else(budget == 0, 
+                              NA_real_,
+                              amount/budget),
+         percent_spent = if_else(budget == 0,
+                                 "No budget",
+                                 paste0(round(prop_spent*100), "%")))
 
-plot_ly(data = spending_bycategory) %>%
+plot_ly(data = spending_by_category) %>%
   add_trace(
-    x = ~Amount,
-    y = ~Category,
+    x = ~ amount,
+    y = ~ category,
     type = "bar",
-    hoverinfo = 'text',
-    text = ~paste0('$', format(Amount, nsmall = 2))) %>%
+    hoverinfo = "text",
+    text = ~ paste0("spending: $", format(amount, nsmall = 2), "<br> budget: $", budget)) %>%
   add_trace(
-    x = ~Budget, 
-    y= ~Category, 
-    type = 'scatter', 
-    mode = 'markers',
-    hoverinfo = 'text',
-    text = ~paste0('$', format(Budget, nsmall = 2))) %>%
-  layout(margin = list(l = 8*max(nchar(as.character(spending_bycategory[['Category']])))),
-         yaxis = list(title = ''),
+    x = ~ budget, 
+    y= ~ category, 
+    type = "scatter", 
+    mode = "markers",
+    hoverinfo = "text",
+    text = ~ paste0("budget: $", format(budget, nsmall = 2))) %>%
+  layout(margin = list(l = 8*max(nchar(as.character(spending_by_category[["category"]])))),
+         yaxis = list(title = ""),
+         xaxis = list(title = "", tickprefix = "$"),
          showlegend = FALSE)
 ```
 
 ### Transactions
 
-```{r TransactionsCurrent, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE}
+```{r transactions_current}
 datatable(spending_current %>% 
-              select(Date, Description, Amount, Category),
+            select(date, amount, description, category) %>%
+            arrange(desc(date)),
           options = list(pageLength = 10))
 ```
 
@@ -71,79 +80,80 @@ Column {data-width=500}
 
 ### Overall Spending
 
-```{r SpendingOverTime, echo=FALSE, message=FALSE, warnings=FALSE, errors=FALSE, fig.width=6, fig.height=2.5}
-spending_overtime <- transactions %>%
-    dplyr::filter(!(Category %in% c('Savings', 'Paycheck', 'Credit Card Payment', 'Transfer')) &
-                      `Transaction Type` == 'debit') %>%
-    group_by(Month) %>%
-    summarise(Amount = sum(Amount)) %>%
-    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Eastern'), 'month'))),
-              by = 'Month') %>%
-    replace(is.na(.), 0)
-    
-plot_ly(data = spending_overtime) %>%
+```{r spending_over_time, fig.width=6, fig.height=2.5}
+spending_over_time <- transactions %>%
+  dplyr::filter(!(category %in% c("savings", "income")) &
+                  type == "out") %>%
+  group_by(month) %>%
+  summarise(amount = sum(amount)) %>%
+  full_join(
+    tibble(month = current_month),
+    by = "month") %>%
+  fill_by_value(amount, 0)
+
+plot_ly(data = spending_over_time) %>%
   add_trace(
-    x = ~Month,
-    y = ~Amount,
+    x = ~ month,
+    y = ~ amount,
     type = "bar",
-    hoverinfo = 'text',
-    text = ~paste0('$', format(Amount, nsmall = 2), " (", month(Month, label = TRUE), ")")) %>%
-  layout(yaxis = list(title = ''),
-         xaxis = list(title = ''))
+    hoverinfo = "text",
+    text = ~paste0("$", format(amount, nsmall = 2), " (", month(month, label = TRUE), ")")) %>%
+  layout(yaxis = list(title = ""),
+         xaxis = list(title = ""))
 ```
 
 ### This Month's Savings
 
-```{r Savings, echo=FALSE}
-savings_currentmonth <- transactions %>%
-    dplyr::filter(Month == floor_date(Sys.time(), 'month') &
-                      Category == 'Savings') %>%
-    mutate(Amount = if_else(`Transaction Type` == 'credit', 1, -1)*Amount) %>%
-    summarise(Savings = sum(Amount)) %>%
-    unlist() %>% 
-    sum() %>%
-    round()
+```{r savings_current, echo=FALSE}
+savings_current <- transactions %>%
+  dplyr::filter(month == current_month &
+                  category == "savings") %>%
+  mutate(amount = if_else(type == "in", 1, -1)*amount) %>%
+  summarise(savings = sum(amount)) %>%
+  pull(savings) %>%
+  round(0)
 
-gauge(savings_currentmonth,
+gauge(savings_current,
       min = 0, max = monthly_savings,
       abbreviate = F,
       gaugeSectors(
-          success = c(monthly_savings*0.75, monthly_savings),
-          warning = c(monthly_savings*0.50, monthly_savings*0.75-1),
-          danger = c(0, monthly_savings*0.50-1),
-          colors = c('#F8AFA8', '#FDDDA0', '#74A089'))
+        success = c(monthly_savings*0.75, monthly_savings),
+        warning = c(monthly_savings*0.50, monthly_savings*0.75-1),
+        danger = c(0, monthly_savings*0.50-1),
+        colors = c("#F8AFA8", "#FDDDA0", "#74A089"))
 )
 ```
 
 ### Overall Savings
 
-```{r, echo=FALSE}
+```{r savings_over_time, echo=FALSE}
 savings <- savings_history %>%
-    mutate(Date = mdy(Date),
-           Month = floor_date(Date, 'month')) %>%
-    select(Date, Month, Amount, Type = `Transaction Type`) %>%
-    bind_rows(transactions %>% 
-                  filter(Category == 'Savings') %>%
-                  select(Date, Month, Amount, Type = `Transaction Type`)) %>%
-    arrange(Date) %>%
-    mutate(Savings = cumsum(Amount*ifelse(Type == 'credit', 1, -1)))
+  mutate(month = floor_date(date, "month")) %>%
+  select(date, month, amount, type) %>%
+  bind_rows(transactions %>% 
+              filter(category == "savings") %>%
+              select(date, month, amount, type)) %>%
+  arrange(date) %>%
+  mutate(savings = cumsum(amount*if_else(type == "in", 1, -1)))
 
-savings_bymonth <- savings %>%
-    group_by(Month) %>%
-    filter(row_number() == n()) %>%
-    ungroup() %>%
-    full_join(tibble(Month = as_date(floor_date(with_tz(Sys.time(), 'US/Pacific'), 'month'))),
-           by = 'Month') %>%
-    mutate(Savings = ifelse(is.na(Savings), lag(Savings), Savings))
+savings_by_month <- savings %>%
+  group_by(month) %>%
+  filter(row_number() == n()) %>%
+  ungroup() %>%
+  full_join(
+    tibble(month = current_month),
+    by = "month") %>%
+  fill_by_value(savings, lag(savings, order_by = month))
 
-plot_ly(data = savings_bymonth) %>%
+plot_ly(data = savings_by_month) %>%
   add_trace(
-    x = ~Month,
-    y = ~Savings,
-    type = "bar",
-    hoverinfo = 'text',
-    text = ~paste0('$', format(Savings, nsmall = 2), " (", month(Month, label = TRUE), ")")) %>%
-  layout(yaxis = list(title = ''),
-         xaxis = list(title = ''))
+    x = ~ month,
+    y = ~ savings,
+    type = "scatter",
+    mode = "lines",
+    hoverinfo = "text",
+    text = ~paste0("$", format(savings, nsmall = 2), " (", month(month, label = TRUE), ")")) %>%
+  layout(yaxis = list(title = "", rangemode = "tozero"),
+         xaxis = list(title = ""))
 ```
 
